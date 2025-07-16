@@ -4,7 +4,7 @@ Author(s): Georgian-Vlad Saioc (vsaioc@uber.com), Milind Chabbi (milind@uber.com
 
 Last updated: 15 Jul 2025
 
-Discussion at [issue/74609](https://go.dev/issue/74609)
+Discussion at [issue #74609](https://go.dev/issue/74609)
 
 ## Abstract
 
