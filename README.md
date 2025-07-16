@@ -50,7 +50,7 @@ Masking is essential because key addresses are globally exposed: goroutines (as 
 
 ## Open issues
 
-Ideally, bitmasking would be as uninvasive as possible. However, in the current implementation, it is still carried out even when the GC is operating normally (assuming experimental changes are enabled). Consider the following (admittedly) program:
+Ideally, bitmasking would be as uninvasive as possible. However, in the current implementation, it is still carried out even when the GC is operating normally (assuming experimental changes are enabled). Consider the following (admittedly contrived) example:
 ```
 func main() {                      // Goroutine G0
   mu := &sync.Mutex{}              // Create lock
@@ -63,7 +63,9 @@ func main() {                      // Goroutine G0
   runtime.DetectDeadlocks()        // Run goroutine leak detection
 }
 ```
-During the execution, the leak will already have occurred by the time leak detection is invoked. We need to prevent the GC for that cycle from marking `mu` in the heap in order to single out `G1` as leaked. Assuming `G0` will have lost the reference to `mu` when leak detection is involved. However, the reference to `mu` is indirectly preserved in `semtable` as soon as `G1` tries to acquire `mu`. Here there are two potential strategies:
+During the execution, the leak will already have occurred by the time leak detection is invoked. We need to prevent the GC for that cycle from marking `mu` in the heap in order to single out `G1` as leaked. Assuming `G0` will have lost the reference to `mu` when leak detection is involved. However, the reference to `mu` is indirectly preserved in `semtable` as soon as `G1` tries to acquire `mu`.
+
+There are two potential strategies to deal with this:
 1. **Bitmasks are always enabled** (current approach): with this variant, sensitive addresses are _always_ stored with a bitmask in the global resources. This makes the GC always ready to perform leak detection with no additional preparation, but `scanblock` must always check for masked addresses, even when not running leak detection.
 2. **Bitmasks are applied when leak detection is triggered**: with this approach, bitmasks are applied to all sensitive locations when triggering the GC (should be performed under STW to ensure there is no interference with user code). The GC then "switches tracks" to leak detection mode, changing its behaviour. This can be achieved either via checks or by reassigning closures. After the GC cycle (or at least marking phase) is completed, the GC unmasks the bitmasks at all sensitive locations and "switches tracks" back to regular behaviour.
   This variant should incur a smaller performance penalty when not running leak detection GC at the cost of a larger application size and more expensive leak detection.
